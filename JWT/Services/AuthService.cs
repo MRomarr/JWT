@@ -1,8 +1,10 @@
 ﻿using System.Data;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Azure.Core;
 using JWT.DTOs;
 using JWT.Helpers;
 using JWT.Models;
@@ -16,11 +18,13 @@ namespace JWT.Services
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly JWThelper _jwt;
-        public AuthService(UserManager<ApplicationUser> userManager, IOptions<JWThelper> Jwt, RoleManager<IdentityRole> roleManager)
+        private readonly IEmailService _emailService;
+        public AuthService(UserManager<ApplicationUser> userManager, IOptions<JWThelper> Jwt, RoleManager<IdentityRole> roleManager, IEmailService emailService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _jwt = Jwt.Value;
+            _emailService = emailService;
         }
 
         public async Task<AuthDto> RegisterAsync(RegisterDto registerDto)
@@ -162,13 +166,41 @@ namespace JWT.Services
 
             var userRefreshToken = user.RefreshTokens.SingleOrDefault(t => t.Token == refreshToken);
 
-            if (user is null|| userRefreshToken is null || !userRefreshToken.IsActive)
+            if (user is null || userRefreshToken is null || !userRefreshToken.IsActive)
                 return false;
 
             // Revoke the old refresh token
             userRefreshToken.RevokedOn = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
             return true;
+        }
+        public async Task<bool> ForgotPasswordAsync(ForgotPasswordDto model)
+        {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user is null)
+                return false;
+            // Generate password reset token
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebUtility.UrlEncode(token);
+            var resetLink = $"https://localhost:7219/api/auth/reset-password?userId={user.Id}&token={encodedToken}";
+
+            // Send email with reset link
+            await _emailService.SendEmailAsync(
+            user.Email,
+            "Reset your password",
+            $"Click <a href='{resetLink}'>here</a> to reset your password.");
+            return true;
+        }
+        public async Task<bool> ResetPasswordAsync(string userId,string token,string NewPassword)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return false;
+            }
+            var result = await _userManager.ResetPasswordAsync(user,token,NewPassword);
+
+            return result.Succeeded;
         }
         private async Task<JwtSecurityToken> CreateJWTToken(ApplicationUser user)
         {

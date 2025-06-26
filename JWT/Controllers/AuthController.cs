@@ -82,7 +82,6 @@ namespace JWT.Controllers
             return Ok(new { message = "Role added successfully.", model });
         }
 
-
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshTokenAsync([FromBody] RefreshTokenDto model)
         {
@@ -102,6 +101,25 @@ namespace JWT.Controllers
             return Ok(result);
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordDto model)
+        {
+            var result = await _authService.ForgotPasswordAsync(model);
+            if (!result)
+                return BadRequest("Failed to send password reset email.");
+
+            return Ok(new { message = "Password reset email sent successfully." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPasswordAsync([FromQuery] string userId, [FromQuery] string token, [FromBody] string NewPassword)
+        {
+            
+            var result = await _authService.ResetPasswordAsync(userId,token,NewPassword);
+            if (!result)
+                return BadRequest("Failed to reset password.");
+            return Ok(new { message = "Password reset successfully." });
+        }
 
 
         private void SetRefreshTokenInCookie(string refreshToken, DateTime expires)

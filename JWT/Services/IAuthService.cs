@@ -9,5 +9,7 @@ namespace JWT.Services
         Task<string> AddRoleAsync(AddRoleDto model);
         Task<AuthDto> RefreshTokenAsync(string refreshToken);
         Task<bool> RevokeTokenAsync(string refreshToken);
+        Task<bool> ForgotPasswordAsync(ForgotPasswordDto model);
+        Task<bool> ResetPasswordAsync(string userId,string token,string NewPassword);
     }
 }
